@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<title>Arsip Soal</title>
+
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+<link rel="stylesheet" href="../style/dashboard.css">
+
+<script>
+if(localStorage.getItem("isLogin") !== "true"){
+  window.location.href = "index.html";
+}
+</script>
+
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+  <h3>ASLAB INFORMATIKA ADMIN</h3>
+
+  <a href="dashboard.html">
+    <i class="fa-solid fa-house"></i>
+    Dashboard
+  </a>
+
+  <a href="arsip-soal.html" class="active">
+    <i class="fa-solid fa-folder"></i>
+    Arsip Soal
+  </a>
+  
+  <a href="data-pendaftar.html">
+    <i class="fa-solid fa-users"></i>
+    Data Pendaftar
+  </a>
+
+  <a href="cbt-admin.html">
+    <i class="fa-solid fa-book"></i>
+    CBT Online
+  </a>
+
+  <a href="pengumuman-admin.html">
+    <i class="fa-solid fa-bullhorn"></i>
+    Pengumuman
+  </a>
+
+  <a href="jadwal-wawancara.html">
+    <i class="fa-solid fa-calendar-days"></i>
+    Jadwal Wawancara
+  </a>
+
+  <a href="#" onclick="logout()">
+  <i class="fa-solid fa-right-from-bracket"></i>
+  Logout
+</a>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<div class="topbar">
+  <h5>Arsip Soal</h5>
+</div>
+
+<div class="content">
+
+<div id="listTema"></div>
+<div id="detail" class="mt-4"></div>
+
+</div>
+</div>
+
+<script>
+
+let setting = JSON.parse(localStorage.getItem("setting_cbt")) || {};
+let allSoal = JSON.parse(localStorage.getItem("soal")) || {};
+
+let temaList = Object.keys(setting).sort((a,b)=>{
+  return (setting[b].dibuat || 0) - (setting[a].dibuat || 0);
+});
+
+function renderTema(){
+
+  let html = "";
+
+  if(temaList.length === 0){
+    html = "<p>Tidak ada arsip soal</p>";
+  } else {
+
+    temaList.forEach(t=>{
+
+      let jumlah = (allSoal[t] || []).length;
+
+      html += `
+     <div class="card-box mb-3">
+
+  <b>${t}</b><br>
+
+  <small>
+    ${setting[t].mulai} - ${setting[t].selesai}
+  </small><br>
+
+  <small>
+    Total soal: ${jumlah}
+  </small><br>
+
+  <button onclick="lihat('${t}')" class="btn btn-primary btn-sm mt-2">
+    Lihat Soal
+  </button>
+
+  <button onclick="editSoal('${t}')" class="btn btn-warning btn-sm mt-2">
+    Edit
+  </button>
+
+  <button onclick="hapus('${t}')" class="btn btn-danger btn-sm mt-2">
+    Hapus
+  </button>
+
+</div>
+      `;
+    });
+  }
+
+  document.getElementById("listTema").innerHTML = html;
+}
+
+function lihat(tema){
+
+  let soal = allSoal[tema] || [];
+
+  let html = `<h5>${tema}</h5>`;
+
+  soal.forEach((s,i)=>{
+
+    html += `<div class="card-box mb-3">`;
+    html += `<b>${i+1}. ${s.soal}</b><br>`;
+
+    if(s.gambar){
+      html += `<img src="${s.gambar}" width="120"><br>`;
+    }
+
+    if(s.tipe==="pg"){
+      html += `
+      A. ${s.a}<br>
+      B. ${s.b}<br>
+      C. ${s.c}<br>
+      D. ${s.d}<br>
+      <span class="text-success">Jawaban: ${s.benar}</span>
+      `;
+    } else {
+      html += `<i>Essay</i>`;
+    }
+
+    html += `</div>`;
+  });
+
+  document.getElementById("detail").innerHTML = html;
+}
+
+function hapus(tema){
+
+  if(!confirm("Hapus soal ini?")) return;
+
+  delete setting[tema];
+  delete allSoal[tema];
+
+  localStorage.setItem(
+    "setting_cbt",
+    JSON.stringify(setting)
+  );
+
+  localStorage.setItem(
+    "soal",
+    JSON.stringify(allSoal)
+  );
+
+  location.reload();
+}
+
+/* EDIT SOAL */
+
+function editSoal(tema){
+
+  localStorage.setItem("editTema", tema);
+
+  window.location.href = "cbt-admin.html";
+}
+
+renderTema();
+function logout(){
+
+  if(confirm("Yakin ingin logout?")){
+
+    localStorage.removeItem("isLogin");
+
+    window.location.href = "index.html";
+
+  }
+
+}
+</script>
+
+</body>
+</html>

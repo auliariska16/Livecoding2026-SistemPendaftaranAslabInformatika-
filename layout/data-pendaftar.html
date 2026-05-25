@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Data Pendaftar</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="../style/dashboard.css">
+
+  <style>
+    .table-box {
+      background: white;
+      padding: 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .table th {
+      background: #0d6efd;
+      color: white;
+      text-align: center;
+    }
+
+    .table td {
+      vertical-align: middle;
+      text-align: center;
+    }
+
+    .btn-aksi {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap; /* Mencegah tombol meluber keluar kolom */
+    }
+
+    .modal-body p {
+      margin-bottom: 8px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="sidebar">
+    <h3>ASLAB INFORMATIKA ADMIN</h3>
+    <a href="dashboard.html"><i class="fa-solid fa-house"></i> Dashboard</a>
+    <a href="arsip-soal.html"><i class="fa-solid fa-folder"></i> Arsip Soal</a>
+    <a href="data-pendaftar.html" class="active"><i class="fa-solid fa-users"></i> Data Pendaftar</a>
+    <a href="cbt-admin.html"><i class="fa-solid fa-book"></i> CBT Online</a>
+    <a href="pengumuman-admin.html"><i class="fa-solid fa-bullhorn"></i> Pengumuman</a>
+    <a href="jadwal-wawancara.html"><i class="fa-solid fa-calendar-days"></i> Jadwal Wawancara</a>
+    <a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h5>Seleksi Administrasi</h5>
+    </div>
+
+    <div class="content">
+      <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+        <div class="d-flex gap-2">
+          <button class="btn btn-outline-primary active" id="filterAll" onclick="ubahFilter('semua')">Semua Data</button>
+          <button class="btn btn-outline-success" id="filterTerima" onclick="ubahFilter('CBT')">Diterima</button>
+          <button class="btn btn-outline-danger" id="filterTolak" onclick="ubahFilter('Tidak Lolos')">Ditolak</button>
+        </div>
+        <div style="max-width: 300px; width: 100%;">
+          <input type="text" id="search" class="form-control" placeholder="Cari nama atau NIM">
+        </div>
+      </div>
+
+      <div class="table-box">
+        <table class="table table-bordered mb-0">
+          <thead>
+            <tr>
+              <th>No</th>
+              <th>Nama</th>
+              <th>NIM</th>
+              <th>Aksi</th>
+            </tr>
+          </thead>
+          <tbody id="dataTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="detailModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Detail Peserta</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body" id="detailBody"></div>
+      </div>
+    </div>
+  </div>
+
+  <script src="api-config.js"></script>
+
+  <script>
+    let data = [];
+    let filterSekarang = "semua";
+
+    async function getData() {
+      try {
+        const response = await fetch(API_ENDPOINTS.pendaftaran);
+
+        if (!response.ok) {
+          throw new Error("Response gagal");
+        }
+
+        const result = await response.json();
+        console.log(result.data);
+        data = result.data || [];
+        render();
+      } catch (error) {
+        console.log(error);
+        alert("Gagal mengambil data");
+      }
+    }
+
+    function ubahFilter(status) {
+      filterSekarang = status;
+
+      document.getElementById("filterAll").classList.remove("active");
+      document.getElementById("filterTerima").classList.remove("active");
+      document.getElementById("filterTolak").classList.remove("active");
+
+      if (status === 'semua') document.getElementById("filterAll").classList.add("active");
+      if (status === 'CBT') document.getElementById("filterTerima").classList.add("active");
+      if (status === 'Tidak Lolos') document.getElementById("filterTolak").classList.add("active");
+
+      render();
+    }
+
+    function render() {
+      let html = "";
+      const searchKey = document.getElementById("search").value.toLowerCase();
+      let nomor = 1;
+
+      data.forEach((d) => {
+        let statusSeleksi = "pending";
+        if (d.seleksi && d.seleksi.status_seleksi) {
+          statusSeleksi = d.seleksi.status_seleksi;
+        }
+
+        let nama = d.nama_lengkap || "-";
+        let nim = d.nim || "-";
+
+        // 🔒 AKURASI CHECK: Deteksi ganda token cbt di model object ataupun langsung di root data
+        let kartuCbt = d.seleksi?.cbt_session;
+
+let sudahBuatKartu = false;
+
+if(d.seleksi){
+
+  if(
+    d.seleksi.cbt_session_id != null
+    ||
+    d.seleksi.token_cbt != null
+    ||
+    d.seleksi.cbt_session != null
+  ){
+    sudahBuatKartu = true;
+  }
+
+}
+
+        if (filterSekarang !== "semua" && statusSeleksi !== filterSekarang) return;
+        if (searchKey && !nama.toLowerCase().includes(searchKey) && !nim.toLowerCase().includes(searchKey)) return;
+
+        // Atur isi tombol kolom aksi secara rapi berdasarkan status pendaftar saat ini
+        let tombolAksiDinamis = "";
+
+        if (statusSeleksi === "CBT") {
+          tombolAksiDinamis = `
+            <span class="badge bg-success p-2 d-flex align-items-center justify-content-center">
+              <i class="fa-solid fa-check me-1"></i> Diterima
+            </span>
+            ${
+  sudahBuatKartu
+  ? `
+    <button
+      class="btn btn-info btn-sm"
+      onclick="lihatKartu('${d.user_id}')">
+
+      <i class="fa-solid fa-id-card"></i>
+      Lihat Kartu CBT
+
+    </button>
+  `
+  : `
+    <button
+      class="btn btn-warning btn-sm fw-bold text-dark"
+      onclick="bukaInputKartu('${d.user_id}', '${nama}')">
+
+      <i class="fa-solid fa-address-card"></i>
+      Buat Kartu CBT
+
+    </button>
+  `
+}
+          `;
+        } else if (statusSeleksi === "Tidak Lolos") {
+          tombolAksiDinamis = `
+            <span class="badge bg-danger p-2 d-flex align-items-center justify-content-center">
+              <i class="fa-solid fa-xmark"></i> Ditolak
+            </span>
+          `;
+        } else {
+          // Status pending / belum diproses
+          tombolAksiDinamis = `
+            <button class="btn btn-success btn-sm" onclick="terima('${d.user_id}')">
+              <i class="fa-solid fa-check"></i> Terima
+            </button>
+            <button class="btn btn-danger btn-sm" onclick="tolak('${d.user_id}')">
+              <i class="fa-solid fa-xmark"></i> Tolak
+            </button>
+          `;
+        }
+
+        html += `
+    <tr>
+      <td>${nomor++}</td>
+      <td>${nama}</td>
+      <td>${nim}</td>
+      <td>
+        <div class="btn-aksi">
+          <button class="btn btn-primary btn-sm" onclick="detailPeserta('${d.user_id}')">
+            <i class="fa-solid fa-eye"></i> Detail
+          </button>
+          ${tombolAksiDinamis}
+        </div>
+      </td>
+    </tr>
+    `;
+      });
+
+      document.getElementById("dataTable").innerHTML = html ||
+        `<tr><td colspan="4" class="text-muted p-3">Tidak ada data ditemukan</td></tr>`;
+    }
+
+    function bukaInputKartu(userId, namaLengkap) {
+      const namaAman = encodeURIComponent(namaLengkap);
+      window.location.href = `input-kartu.html?id=${userId}&nama=${namaAman}`;
+    }
+
+    function lihatKartu(userId){
+
+  const peserta =
+  data.find(d => d.user_id == userId);
+
+  if(!peserta){
+    alert("Data peserta tidak ditemukan");
+    return;
+  }
+
+  const sesi = peserta.seleksi;
+
+if(!sesi){
+  alert("Data kartu CBT tidak ditemukan");
+  return;
+}
+
+  document.getElementById("detailBody").innerHTML = `
+
+    <div class="row">
+
+      <div class="col-12 text-center mb-4">
+        <h4 class="fw-bold text-primary">
+          KARTU PESERTA CBT
+        </h4>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <strong>Nama Peserta</strong>
+        <p>${peserta.nama_lengkap || "-"}</p>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <strong>NIM</strong>
+        <p>${peserta.nim || "-"}</p>
+      </div>
+
+      <div class="col-md-6 mb-3">
+  <strong>Nama CBT</strong>
+  <p>${sesi.tema || "-"}</p>
+</div>
+
+<div class="col-md-6 mb-3">
+  <strong>Token CBT</strong>
+  <p>${sesi.token_cbt || "-"}</p>
+</div>
+
+<div class="col-md-6 mb-3">
+  <strong>Tanggal Ujian</strong>
+  <p>${sesi.tanggal_ujian || "-"}</p>
+</div>
+
+<div class="col-md-6 mb-3">
+  <strong>Durasi</strong>
+  <p>${sesi.durasi || "-"} menit</p>
+</div>
+
+    </div>
+
+  `;
+
+  let modal =
+  new bootstrap.Modal(
+    document.getElementById('detailModal')
+  );
+
+  modal.show();
+
+}
+    getData();
+
+    function detailPeserta(id) {
+      let peserta = data.find(d => d.user_id == id);
+      if (!peserta) {
+        alert("Data tidak ditemukan");
+        return;
+      }
+
+      document.getElementById("detailBody").innerHTML = `
+    <div class="row">
+      <div class="col-md-6 mb-3"><strong>User ID</strong><p>${peserta.user_id || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>NIM</strong><p>${peserta.nim || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>Kelas</strong><p>${peserta.kelas || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>Jenis Kelamin</strong><p>${peserta.jenis_kelamin || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>Tempat Lahir</strong><p>${peserta.tempat_lahir || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>Tanggal Lahir</strong><p>${peserta.tanggal_lahir || "-"}</p></div>
+      <div class="col-md-12 mb-3"><strong>Alamat</strong><p>${peserta.alamat_lengkap || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>Tahun Kelulusan</strong><p>${peserta.tahun_kelulusan || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>No WhatsApp</strong><p>${peserta.no_wa || "-"}</p></div>
+      <div class="col-md-6 mb-3"><strong>Email</strong><p>${peserta.email || "-"}</p></div>
+      <div class="col-md-12 mb-3"><strong>Alasan Daftar</strong><p>${peserta.alasan_daftar || "-"}</p></div>
+      <div class="col-md-12 mb-3"><strong>Deskripsi Project</strong><p>${peserta.dokumen?.deskripsi_project || "-"}</p></div>
+
+      <div class="col-md-4 mb-3"><a href="https://${peserta.dokumen?.link_github || '#'}" target="_blank" class="btn btn-dark w-100">Github</a></div>
+      <div class="col-md-4 mb-3"><a href="${peserta.dokumen?.link_linkedin || '#'}" target="_blank" class="btn btn-primary w-100">LinkedIn</a></div>
+      <div class="col-md-4 mb-3"><a href="${peserta.dokumen?.link_portfolio || '#'}" target="_blank" class="btn btn-success w-100">Portfolio</a></div>
+
+      <div class="col-md-6 mb-3"><a href="${STORAGE_BASE_URL}/${peserta.dokumen?.file_ktm || ''}" target="_blank" class="btn btn-outline-secondary w-100">Lihat KTM</a></div>
+      <div class="col-md-6 mb-3"><a href="${STORAGE_BASE_URL}/${peserta.dokumen?.file_cv || ''}" target="_blank" class="btn btn-outline-secondary w-100">Lihat CV</a></div>
+      <div class="col-md-6 mb-3"><a href="${STORAGE_BASE_URL}/${peserta.dokumen?.file_ijazah || ''}" target="_blank" class="btn btn-outline-secondary w-100">Lihat Ijazah</a></div>
+      <div class="col-md-6 mb-3"><a href="${STORAGE_BASE_URL}/${peserta.dokumen?.file_ss_ig || ''}" target="_blank" class="btn btn-outline-secondary w-100">Screenshot IG</a></div>
+    </div>
+  `;
+
+      let modal = new bootstrap.Modal(document.getElementById('detailModal'));
+      modal.show();
+    }
+
+    function lihatKartu(userId){
+
+  let peserta = data.find(
+    d => d.user_id == userId
+  );
+
+  if(!peserta) return;
+
+  let kartu = peserta.seleksi?.cbt_session;
+
+  if(!kartu){
+    return alert("Kartu CBT tidak ditemukan");
+  }
+
+  document.getElementById("isiModalKartu").innerHTML = `
+
+    <div class="text-center">
+
+      <h4 class="fw-bold text-primary">
+        ${kartu.nama_cbt}
+      </h4>
+
+      <hr>
+
+      <p>
+        <b>Nama:</b><br>
+        ${peserta.nama_lengkap}
+      </p>
+
+      <p>
+        <b>NIM:</b><br>
+        ${peserta.nim}
+      </p>
+
+      <p>
+        <b>Tanggal:</b><br>
+        ${kartu.tanggal}
+      </p>
+
+      <p>
+        <b>Durasi:</b><br>
+        ${kartu.durasi} Menit
+      </p>
+
+      <p>
+        <b>Token CBT:</b><br>
+
+        <span class="badge bg-dark fs-6">
+          ${kartu.token}
+        </span>
+
+      </p>
+
+    </div>
+
+  `;
+
+  let modal = new bootstrap.Modal(
+    document.getElementById("modalKartu")
+  );
+
+  modal.show();
+
+}
+
+    async function updateSeleksi(userId, status) {
+      try {
+        const response = await fetch(API_ENDPOINTS.seleksi, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            status_seleksi: status
+          })
+        });
+
+        const result = await response.json();
+        if (result.success) {
+          let peserta = data.find(d => d.user_id == userId);
+          if (peserta) {
+            if (!peserta.seleksi) peserta.seleksi = {};
+            peserta.seleksi.status_seleksi = status;
+          }
+          render();
+          alert(result.message);
+        } else {
+          alert("Gagal update status");
+        }
+      } catch (error) {
+        console.log(error);
+        alert("Terjadi error");
+      }
+    }
+
+    function terima(id) {
+      updateSeleksi(id, "CBT");
+    }
+
+    function tolak(id) {
+      updateSeleksi(id, "Tidak Lolos");
+    }
+
+    document.getElementById("search").addEventListener("input", render);
+
+    function logout() {
+      if (confirm("Yakin ingin logout?")) {
+        localStorage.removeItem("isLogin");
+        window.location.href = "index.html";
+      }
+    }
+  </script>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<!-- MODAL KARTU CBT -->
+<div class="modal fade" id="modalKartu" tabindex="-1">
+
+  <div class="modal-dialog">
+
+    <div class="modal-content">
+
+      <div class="modal-header">
+
+        <h5 class="modal-title">
+          Kartu CBT Peserta
+        </h5>
+
+        <button
+          type="button"
+          class="btn-close"
+          data-bs-dismiss="modal">
+        </button>
+
+      </div>
+
+      <div class="modal-body" id="isiModalKartu">
+
+      </div>
+
+    </div>
+
+  </div>
+
+</div>
+
+</body>
+
+</html>

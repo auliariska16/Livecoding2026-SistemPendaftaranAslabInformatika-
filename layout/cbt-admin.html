@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+  <meta charset="UTF-8">
+  <title>CBT Admin</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+  <link rel="stylesheet" href="../style/dashboard.css">
+
+  <script>
+    if (localStorage.getItem("isLogin") !== "true") {
+      window.location.href = "index.html";
+    }
+  </script>
+
+  <style>
+    .preview-img {
+      max-width: 180px;
+      border-radius: 6px;
+      margin-top: 6px;
+    }
+
+    .card-soal {
+      padding: 12px;
+      border-radius: 10px;
+      background: #fff;
+      margin-bottom: 10px;
+    }
+
+    .badge {
+      font-size: 11px;
+    }
+
+    .edit-mode {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="sidebar">
+    <h3>ASLAB INFORMATIKA ADMIN</h3>
+    <a href="dashboard.html"><i class="fa-solid fa-house"></i> Dashboard</a>
+    <a href="arsip-soal.html"><i class="fa-solid fa-folder"></i> Arsip Soal</a>
+    <a href="data-pendaftar.html"><i class="fa-solid fa-users"></i> Data Pendaftar</a>
+    <a href="cbt-admin.html" class="active"><i class="fa-solid fa-book"></i> CBT Online</a>
+    <a href="pengumuman-admin.html"><i class="fa-solid fa-bullhorn"></i> Pengumuman</a>
+    <a href="jadwal-wawancara.html"><i class="fa-solid fa-calendar-days"></i> Jadwal Wawancara</a>
+    <a href="#" onclick="logout()"><i class="fa-solid fa-right-from-bracket"></i> Logout</a>
+  </div>
+
+  <div class="main">
+    <div class="topbar">
+      <h5>CBT Admin</h5>
+      <span id="modeLabel" class="edit-mode"></span>
+    </div>
+
+    <div class="content">
+
+      <div class="card p-3 mb-4 shadow-sm border-primary">
+        <h6 class="fw-bold mb-3 text-primary"><i class="fa-solid fa-calendar-plus"></i> Form Buat Paket Sesi & Waktu
+          Ujian Baru</h6>
+        <div class="row">
+          <div class="col-md-6 mb-2">
+            <label class="form-label small fw-bold">Nama Paket Sesi CBT</label>
+            <input type="text" id="temaBaru" class="form-control" placeholder="Contoh: Ujian CBT Gelombang 1">
+          </div>
+          <div class="col-md-3 mb-2">
+            <label class="form-label small fw-bold">Durasi Ujian (Menit)</label>
+            <input type="number" id="durasi" class="form-control" placeholder="Contoh: 60">
+          </div>
+          <div class="col-md-3 mb-2">
+            <label class="form-label small fw-bold">Tahun Angkatan</label>
+            <input type="number" id="tahunAngkatan" class="form-control" value="2026">
+          </div>
+          <div class="col-md-6 mb-2">
+            <label class="form-label small fw-bold">Tanggal & Jam Mulai Akses</label>
+            <input type="datetime-local" id="mulai" class="form-control">
+          </div>
+          <div class="col-md-6 mb-3">
+            <label class="form-label small fw-bold">Tanggal & Jam Selesai Akses</label>
+            <input type="datetime-local" id="selesai" class="form-control">
+          </div>
+        </div>
+        <button onclick="simpanSesiBaru()" class="btn btn-primary fw-bold w-100">
+          <i class="fa-solid fa-circle-plus"></i> Buat & Aktifkan Paket Sesi Ini
+        </button>
+      </div>
+
+      <div class="card p-3 mb-4 bg-light">
+        <label class="form-label fw-bold text-secondary">Langkah 2: Pilih Paket Sesi untuk Mengisi Bank Soal</label>
+        <select id="temaSelect" class="form-control" onchange="pilihTema()">
+          <option value="">-- Memuat daftar sesi dari database... --</option>
+        </select>
+        <div class="mt-2">
+          Total Soal Terisi di Sesi Ini: <b id="counter" class="text-primary">0</b> Soal
+        </div>
+      </div>
+
+      <div class="card p-3 mb-4 shadow-sm">
+        <h6 class="fw-bold mb-3 text-secondary"><i class="fa-solid fa-plus"></i> Form Input Soal Baru</h6>
+
+        <div class="mb-2">
+          <label for="tipe" class="form-label small fw-bold">Tipe Soal</label>
+          <select id="tipe" class="form-control" onchange="togglePG()">
+            <option value="pg">Pilihan Ganda</option>
+            <option value="essay">Essay</option>
+          </select>
+        </div>
+
+        <div class="mb-2">
+          <label for="soal" class="form-label small fw-bold">Pertanyaan Soal</label>
+          <textarea id="soal" class="form-control" rows="3" placeholder="Tulis atau ketik pertanyaan soal di sini..."
+            required></textarea>
+        </div>
+
+        <div class="mb-3">
+          <label for="gambar" class="form-label small fw-bold">Gambar Pendukung (Opsional)</label>
+          <input type="file" id="gambar" class="form-control">
+        </div>
+
+        <div id="pgBox" class="mb-3">
+          <label class="form-label small fw-bold">Pilihan Opsi & Jawaban Benar</label>
+          <input type="text" id="a" class="form-control mb-1" placeholder="Teks Opsi A">
+          <input type="text" id="b" class="form-control mb-1" placeholder="Teks Opsi B">
+          <input type="text" id="c" class="form-control mb-1" placeholder="Teks Opsi C">
+          <input type="text" id="d" class="form-control mb-1" placeholder="Teks Opsi D">
+
+          <select id="jawaban" class="form-control mt-2">
+            <option value="">-- Pilih Huruf Jawaban yang Benar --</option>
+            <option value="A">A</option>
+            <option value="B">B</option>
+            <option value="C">C</option>
+            <option value="D">D</option>
+          </select>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button onclick="tambahSoal()" class="btn btn-success flex-grow-1 fw-bold">
+            <i class="fa-solid fa-floppy-disk"></i> Tambah / Simpan Soal
+          </button>
+          <button onclick="batalEdit()" class="btn btn-secondary fw-bold">
+            Batal
+          </button>
+        </div>
+      </div>
+
+      <hr>
+
+      <h6 class="fw-bold mb-2 text-secondary"><i class="fa-solid fa-magnifying-glass"></i> Daftar Preview Soal Terbuka
+      </h6>
+      <input type="text" id="search" class="form-control mb-3" placeholder="Cari soal berdasarkan kata kunci..."
+        onkeyup="debounceRender()">
+
+      <div id="preview"></div>
+
+    </div>
+  </div>
+
+  <script src="api-config.js"></script>
+
+  <script>
+    let currentTema = "";
+    let editId = null;
+    let timer;
+    let allSetting = [];
+    let allSoal = [];
+
+    /* SIMPAN SESI CBT BARU */
+    async function simpanSesiBaru() {
+      const namaCbt = document.getElementById("temaBaru").value.trim();
+      const durasiMenit = document.getElementById("durasi").value;
+      const tahun = document.getElementById("tahunAngkatan").value;
+      const tglMulai = document.getElementById("mulai").value;
+      const tglSelesai = document.getElementById("selesai").value;
+
+      if (!namaCbt || !durasiMenit || !tglMulai || !tglSelesai) {
+        return alert("Harap lengkapi Nama Paket, Durasi Waktu, dan Tanggal Akses!");
+      }
+
+      let payloadSesi = {
+        nama_cbt: namaCbt,
+        waktu_mulai: tglMulai,
+        durasi: parseInt(durasiMenit),
+        tahun: parseInt(tahun),
+        waktu_selesai: tglSelesai
+      };
+
+      try {
+        const response = await fetch(API_ENDPOINTS.cbtSession || `${API_BASE_URL}/cbt-session`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(payloadSesi)
+        });
+
+        if (response.ok) {
+          alert("🎉 Sukses! Paket Ujian baru dan Aturan Waktu berhasil diaktifkan.");
+          document.getElementById("temaBaru").value = "";
+          document.getElementById("durasi").value = "";
+          document.getElementById("mulai").value = "";
+          document.getElementById("selesai").value = "";
+          await loadTemaList();
+        } else {
+          const errData = await response.json();
+          alert("Gagal membuat sesi baru: " + (errData.message || "Periksa data inputan"));
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Gagal terhubung ke Laravel server untuk menyimpan sesi.");
+      }
+    }
+
+    /* MUAT DAFTAR PAKET SESI */
+    async function loadTemaList() {
+      try {
+        const response = await fetch(API_ENDPOINTS.cbtSession || `${API_BASE_URL}/cbt-session`);
+        const result = await response.json();
+
+        allSetting = result.data || result || [];
+
+        const temaSelect = document.getElementById("temaSelect");
+        if (allSetting.length === 0) {
+          temaSelect.innerHTML =
+            "<option value=''>-- Belum ada Paket Sesi. Buatlah paket dulu di form atas! --</option>";
+          return;
+        }
+
+        temaSelect.innerHTML = "<option value=''>-- Silakan Pilih Paket Sesi CBT --</option>";
+        allSetting.forEach(cbt => {
+          temaSelect.innerHTML += `
+            <option value="${cbt.id}">
+              ${cbt.nama_cbt} (Durasi: ${cbt.durasi} Menit)
+            </option>
+          `;
+        });
+      } catch (error) {
+        console.error(error);
+        const temaSelect = document.getElementById("temaSelect");
+        temaSelect.innerHTML = "<option value=''>-- Gagal Memuat. Pastikan Laravel Server Jalan! --</option>";
+      }
+    }
+
+    /* DROPDOWN AKTIF */
+    function pilihTema() {
+      currentTema = document.getElementById("temaSelect").value;
+      render();
+    }
+
+    /* TOGGLE PG / ESSAY */
+    function togglePG() {
+      const pgBox = document.getElementById("pgBox");
+      const tipe = document.getElementById("tipe");
+      pgBox.style.display = tipe.value === "pg" ? "block" : "none";
+    }
+
+    /* KONTROL DATA FORM SOAL */
+    function tambahSoal() {
+      if (!currentTema) {
+        return alert("Pilih paket sesi CBT terlebih dahulu pada Langkah 2!");
+      }
+
+      if (!document.getElementById("soal").value.trim()) {
+        return alert("Kolom pertanyaan soal tidak boleh kosong!");
+      }
+
+      let file = document.getElementById("gambar").files[0];
+
+      if (file) {
+        let reader = new FileReader();
+        reader.onload = e => {
+          simpanSoal(e.target.result);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        simpanSoal(null);
+      }
+    }
+
+    /* SIMPAN BANK SOAL */
+    async function simpanSoal(img) {
+      const tipeVal = document.getElementById("tipe").value;
+
+      let payload = {
+        cbt_session_id: parseInt(currentTema),
+        pertanyaan: document.getElementById("soal").value.trim(),
+        opsi_a: tipeVal === "pg" ? document.getElementById("a").value.trim() : null,
+        opsi_b: tipeVal === "pg" ? document.getElementById("b").value.trim() : null,
+        opsi_c: tipeVal === "pg" ? document.getElementById("c").value.trim() : null,
+        opsi_d: tipeVal === "pg" ? document.getElementById("d").value.trim() : null,
+        jawaban_benar: tipeVal === "pg" ? document.getElementById("jawaban").value : null,
+        admin_id: 1
+      };
+
+      let targetUrl = API_ENDPOINTS.soal || `${API_BASE_URL}/soal`;
+      let methodType = "POST";
+
+      if (editId) {
+        targetUrl = `${targetUrl}/${editId}`;
+        methodType = "PUT";
+      }
+
+      try {
+        const response = await fetch(targetUrl, {
+          method: methodType,
+          headers: {
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify(payload)
+        });
+
+        const result = await response.json();
+
+        if (response.ok) {
+          alert("🎉 Sukses! Soal berhasil disimpan ke dalam database MySQL.");
+          resetForm();
+          batalEdit();
+          render();
+        } else {
+          alert("Gagal menyimpan soal: " + (result.message || "Validasi Laravel menolak data"));
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Terjadi gangguan jaringan! Gagal terhubung ke laptop server backend.");
+      }
+    }
+
+    /* RENDER PREVIEW LIVE BANK SOAL */
+    async function render() {
+      if (!currentTema) {
+        document.getElementById("preview").innerHTML = "";
+        document.getElementById("counter").innerText = "0";
+        return;
+      }
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/soal/${currentTema}`);
+        const result = await response.json();
+
+        allSoal = result.data || result || [];
+        document.getElementById("counter").innerText = allSoal.length;
+
+        let keyword = document.getElementById("search").value.toLowerCase();
+        const previewContainer = document.getElementById("preview");
+        previewContainer.innerHTML = "";
+
+        allSoal.forEach((s) => {
+          let teksPertanyaan = s.pertanyaan || "";
+
+          if (!teksPertanyaan.toLowerCase().includes(keyword)) return;
+
+          let tipeSoalAsli = (s.opsi_a) ? 'pilihan ganda' : 'essay';
+
+          previewContainer.innerHTML += `
+            <div class="card-soal shadow-sm border p-3 mb-2 rounded bg-white text-start">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="badge bg-primary text-uppercase">${tipeSoalAsli}</span>
+              </div>
+              <div class="mb-2">
+                <b class="text-dark">${teksPertanyaan}</b>
+              </div>
+              ${s.gambar ? `<img src="${STORAGE_BASE_URL}/${s.gambar}" class="preview-img d-block mb-2">` : ""}
+              ${s.opsi_a 
+                ? `
+                <div class="mt-2 text-muted small p-2 bg-light rounded">
+                  A. ${s.opsi_a}<br>
+                  B. ${s.opsi_b}<br>
+                  C. ${s.opsi_c}<br>
+                  D. ${s.opsi_d}<br>
+                  <div class="mt-2"><b class="text-success"><i class="fa-solid fa-circle-check"></i> Kunci Jawaban: ${s.jawaban_benar}</b></div>
+                </div>
+                `
+                : "<div class='text-muted small mt-1'><i>Tipe Soal: Essay</i></div>"
+              }
+              <div class="mt-3 border-top pt-2">
+                <button onclick="edit('${s.id}')" class="btn btn-sm btn-warning me-1 fw-bold"><i class="fa-solid fa-pen"></i> Edit</button>
+                <button onclick="hapus('${s.id}')" class="btn btn-sm btn-danger fw-bold"><i class="fa-solid fa-trash"></i> Hapus</button>
+              </div>
+            </div>
+          `;
+        });
+      } catch (error) {
+        console.error(error);
+        document.getElementById("preview").innerHTML =
+          "<div class='text-muted text-center p-3'>Belum ada soal untuk sesi ini.</div>";
+      }
+    }
+
+    /* EDIT DATA */
+    function edit(id) {
+      let s = allSoal.find(x => x.id == id);
+      if (!s) return;
+
+      document.getElementById("soal").value = s.pertanyaan || "";
+
+      if (s.opsi_a) {
+        document.getElementById("tipe").value = "pg";
+        document.getElementById("a").value = s.opsi_a;
+        document.getElementById("b").value = s.opsi_b;
+        document.getElementById("c").value = s.opsi_c;
+        document.getElementById("d").value = s.opsi_d;
+        document.getElementById("jawaban").value = s.jawaban_benar;
+      } else {
+        document.getElementById("tipe").value = "essay";
+      }
+
+      togglePG();
+      editId = id;
+      document.getElementById("modeLabel").innerText = "MODE EDIT AKTIF";
+      window.scrollTo({
+        top: 0,
+        behavior: 'smooth'
+      });
+    }
+
+    /* HAPUS DATA */
+    async function hapus(id) {
+      if (!confirm("Yakin ingin menghapus soal ini secara permanen dari database?")) return;
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/soal/${id}`, {
+          method: "DELETE"
+        });
+
+        if (response.ok) {
+          alert("Soal berhasil terhapus!");
+          render();
+        } else {
+          alert("Gagal menghapus data soal di server backend");
+        }
+      } catch (error) {
+        console.error(error);
+        alert("Gagal menghapus soal akibat kendala jaringan");
+      }
+    }
+
+    /* RESET FORM VALUE */
+    function resetForm() {
+      document.getElementById("soal").value = "";
+      document.getElementById("gambar").value = "";
+      document.getElementById("a").value = "";
+      document.getElementById("b").value = "";
+      document.getElementById("c").value = "";
+      document.getElementById("d").value = "";
+      document.getElementById("jawaban").value = "";
+    }
+
+    /* LIVE SEARCH DEBOUNCE */
+    function debounceRender() {
+      clearTimeout(timer);
+      timer = setTimeout(render, 300);
+    }
+
+    /* BATAL EDIT DATA */
+    function batalEdit() {
+      editId = null;
+      document.getElementById("modeLabel").innerText = "";
+      resetForm();
+    }
+
+    /* LOGOUT */
+    function logout() {
+      if (confirm("Yakin ingin logout?")) {
+        localStorage.removeItem("isLogin");
+        window.location.href = "index.html";
+      }
+    }
+
+    /* RUN INITIALIZATION ON LOAD */
+    loadTemaList();
+    togglePG();
+  </script>
+</body>
+
+</html>
